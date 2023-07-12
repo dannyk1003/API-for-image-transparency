@@ -6,11 +6,11 @@ name = "pypi"
 [packages]
 fastapi = "*"
 opencv-python = "*"
-numpy = "*"
-uvicorn = "*"
 python-multipart = "*"
+uvicorn = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.9"
+python_full_version = "3.9.6"
