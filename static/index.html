@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>照片上傳與背景去除</title>
+</head>
+<body>
+    <h2>照片上傳與背景去除</h2>
+    <form action="/upload/" method="post" enctype="multipart/form-data">
+        <input type="file" name="image">
+        <input type="submit" value="上傳">
+    </form>
+    <hr>
+    <h3>回應內容：</h3>
+    <div>
+        
+    <h2>圖片上傳成功！</h2>
+    <h3>原始圖片：</h3>
+    <img src="http://127.0.0.1:8000/static/original_image.png" alt="Original Image" style="max-width: 500px;">
+    <h3><a href="http://127.0.0.1:8000/static/original_image.png">URL:http://127.0.0.1:8000/static/original_image.png</a></h3>
+    <h3>照片去背後的圖片：</h3>
+    <img src="http://127.0.0.1:8000/static/processed_image.png" alt="Processed Image" style="max-width: 500px;">
+    <h3><a href="http://127.0.0.1:8000/static/processed_image.png">URL:http://127.0.0.1:8000/static/processed_image.png</a></h3>
+    
+    </div>
+</body>
+</html>

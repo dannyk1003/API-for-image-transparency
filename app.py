@@ -1,11 +1,17 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import Response
+import os
+from fastapi import FastAPI, File, UploadFile, Request
+from fastapi.responses import HTMLResponse, FileResponse
+from starlette.staticfiles import StaticFiles
 import cv2
 import numpy as np
+import shutil
 
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 original_image = None
+processed_image = None
+
 
 def RMBG(img):
     img_copy = np.copy(img)
@@ -61,7 +67,7 @@ def RMBG(img):
     return img_copy
 
 @app.post("/upload/")
-async def upload(image: UploadFile = File(...)):
+async def upload(request: Request, image: UploadFile = File(...)):
     global original_image
 
     contents = await image.read()
@@ -69,39 +75,38 @@ async def upload(image: UploadFile = File(...)):
     img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
 
     original_image = img
-    
-    # 儲存原始圖片，轉 PNG 格式
-    retval, buffer = cv2.imencode('.png', img)
-    img = buffer.tobytes()
 
-    return Response(content=img, media_type='image/png')
+    # 將原始圖片儲存為 PNG 格式
+    file_path = "static/original_image.png"
+    cv2.imwrite(file_path, img)
 
-@app.get("/remove_background/")
-async def remove_background():
-    global original_image
+    # 將處理後的圖片儲存為 PNG 格式
+    processed_img = RMBG(original_image)
+    processed_file_path = "static/processed_image.png"
+    cv2.imwrite(processed_file_path, processed_img)
 
-    if original_image is None:
-        return {"message": "upload image first!!"}
-    else:
-        img = RMBG(original_image)
+    # 讀取 HTML 模板
+    with open("index.html", "r", encoding="utf-8") as file:
+        template = file.read()
 
-        # 將圖片轉換為 PNG 格式
-        retval, buffer = cv2.imencode('.png', img)
-        transparent_image = buffer.tobytes()
-        
-        return Response(content=transparent_image, media_type='image/png')
+    # 將回應內容填入 HTML 模板
+    response_content = """
+    <h2>圖片上傳成功！</h2>
+    <h3>原始圖片：</h3>
+    <img src="{original_image_url}" alt="Original Image" style="max-width: 500px;">
+    <h3>照片去背後的圖片：</h3>
+    <img src="{processed_image_url}" alt="Processed Image" style="max-width: 500px;">
+    """.format(
+        original_image_url=f"{request.base_url}/static/original_image.png",
+        processed_image_url=f"{request.base_url}/static/processed_image.png",
+    )
+
+    html_content = template.format(response_content=response_content)
+
+    return HTMLResponse(content=html_content)
 
 
 if __name__ == "__main__":
-    #連結上fastapi，預設port為8000
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
-# 程式運作流程
-# 匯入必要的模組和套件，包括FastAPI、File、UploadFile等。
-# 創建FastAPI應用程式的實例。
-# 定義一個全局變數original_image，用於存儲上傳的原始圖片。
-# 定義一個RMBG函數，用於移除圖片的背景。
-# 定義一個/upload/的POST路由，用於處理圖片上傳的請求。在該路由中，從上傳的圖片中讀取內容並轉換為OpenCV可處理的格式。將轉換後的圖片存儲到original_image變數中，然後將原始圖片以PNG格式返回給客戶端。
-# 定義一個/remove_background/的GET路由，用於處理移除背景的請求。在該路由中，檢查original_image變數是否為空，如果為空則返回錯誤訊息。如果不為空，則將原始圖片傳遞給RMBG函數進行背景移除操作，並將結果以PNG格式返回給客戶端。
-# 執行FastAPI應用程式，使用uvicorn伺服器運行在本地主機上的端口8000。
+    uvicorn.run(app, host="0.0.0.0", port=8000)
