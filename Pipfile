@@ -8,6 +8,7 @@ fastapi = "*"
 opencv-python = "*"
 python-multipart = "*"
 uvicorn = "*"
+jinja2 = "*"
 
 [dev-packages]
 

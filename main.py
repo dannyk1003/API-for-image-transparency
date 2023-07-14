@@ -1,11 +1,12 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import Response
+from fastapi import FastAPI, Request, UploadFile, File
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
 import cv2
 import numpy as np
-
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
-original_image = None
+templates = Jinja2Templates(directory="templates")
 
 def RMBG(img):
     img_copy = np.copy(img)
@@ -60,48 +61,48 @@ def RMBG(img):
 
     return img_copy
 
-@app.post("/upload/")
-async def upload(image: UploadFile = File(...)):
-    global original_image
 
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post('/upload', response_class=HTMLResponse)
+async def upload(request: Request, image: UploadFile = UploadFile(...)):
     contents = await image.read()
+
+
+    origin_path = 'templates/origin.PNG'
+    with open(origin_path, "wb") as file:
+        file.write(contents)
+
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
-
-    original_image = img
     
-    # 儲存原始圖片，轉 PNG 格式
+    img = RMBG(img)
     retval, buffer = cv2.imencode('.png', img)
     img = buffer.tobytes()
 
-    return Response(content=img, media_type='image/png')
+    process_path = 'templates/process.PNG'
+    with open(process_path, "wb") as file:
+        file.write(img)
 
-@app.get("/remove_background/")
-async def remove_background():
-    global original_image
+    return templates.TemplateResponse('my_html.html', {"request": request, "origin_url": "/origin", 'process_url': '/process'})
 
-    if original_image is None:
-        return {"message": "upload image first!!"}
-    else:
-        img = RMBG(original_image)
+@app.get('/origin')
+async def origin():
+    file_path = 'templates/origin.PNG'
+    return FileResponse(file_path)
 
-        # 將圖片轉換為 PNG 格式
-        retval, buffer = cv2.imencode('.png', img)
-        transparent_image = buffer.tobytes()
-        
-        return Response(content=transparent_image, media_type='image/png')
+
+@app.get('/process')
+async def process():
+    file_path = 'templates/process.PNG'
+    return FileResponse(file_path)
+
 
 
 if __name__ == "__main__":
-    #連結上fastapi，預設port為8000
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
-# 程式運作流程
-# 匯入必要的模組和套件，包括FastAPI、File、UploadFile等。
-# 創建FastAPI應用程式的實例。
-# 定義一個全局變數original_image，用於存儲上傳的原始圖片。
-# 定義一個RMBG函數，用於移除圖片的背景。
-# 定義一個/upload/的POST路由，用於處理圖片上傳的請求。在該路由中，從上傳的圖片中讀取內容並轉換為OpenCV可處理的格式。將轉換後的圖片存儲到original_image變數中，然後將原始圖片以PNG格式返回給客戶端。
-# 定義一個/remove_background/的GET路由，用於處理移除背景的請求。在該路由中，檢查original_image變數是否為空，如果為空則返回錯誤訊息。如果不為空，則將原始圖片傳遞給RMBG函數進行背景移除操作，並將結果以PNG格式返回給客戶端。
-# 執行FastAPI應用程式，使用uvicorn伺服器運行在本地主機上的端口8000。
+    uvicorn.run(app, host="127.0.0.1", port=5555)
