@@ -1,12 +1,14 @@
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 import cv2
 import numpy as np
-from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+origin_img = None
+process_img = None
+
 
 def RMBG(img):
     img_copy = np.copy(img)
@@ -69,40 +71,39 @@ def index(request: Request):
 
 @app.post('/upload', response_class=HTMLResponse)
 async def upload(request: Request, image: UploadFile = UploadFile(...)):
+    global origin_img, process_img
+    # 上傳圖片
     contents = await image.read()
 
-
-    origin_path = 'templates/origin.PNG'
-    with open(origin_path, "wb") as file:
-        file.write(contents)
-
+    # 原圖存入記憶體
+    origin_img = contents
+    
+    # 圖片去背
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
-    
     img = RMBG(img)
     retval, buffer = cv2.imencode('.png', img)
     img = buffer.tobytes()
 
-    process_path = 'templates/process.PNG'
-    with open(process_path, "wb") as file:
-        file.write(img)
+    # 去背圖存入記憶體
+    process_img = img
 
     return templates.TemplateResponse('my_html.html', {"request": request, "origin_url": "/origin", 'process_url': '/process'})
 
 @app.get('/origin')
 async def origin():
-    file_path = 'templates/origin.PNG'
-    return FileResponse(file_path)
+    global origin_img
+    return Response(content=origin_img, media_type='image/png')
 
 
 @app.get('/process')
 async def process():
-    file_path = 'templates/process.PNG'
-    return FileResponse(file_path)
+    global process_img
+    return Response(content=process_img, media_type='image/png')
 
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=5555)
+    uvicorn.run(app, host="0.0.0.0", port=5555)
