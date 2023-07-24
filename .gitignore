@@ -3,3 +3,4 @@
 *.jpeg
 test*
 __pycache__/
+lib/
